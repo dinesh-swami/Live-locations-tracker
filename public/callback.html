@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <h1>callback</h1>
+
+    <script>
+        const parmas = new URLSearchParams(window.location.search);
+
+        const state = parmas.get("state");
+        const code = parmas.get("code");
+        
+
+        const localState = sessionStorage.getItem("state");
+        const nonce = sessionStorage.getItem("nonce");
+
+        async function authenticate() {
+            if (JSON.parse(localState) !== state) {
+                console.error("state is invalid");
+                return;
+            };
+            
+            const response = await fetch("/authenticate", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code,
+                    nonce: JSON.parse(nonce)
+                }),
+            });
+
+            const data = await response.json();
+
+
+            if (data) {
+                const response = await fetch("https://oidc-t4w5.onrender.com/o/userinfo", {
+                    headers: {
+                        Authorization: `Bearer ${data.data}`
+                    }
+                });
+
+                const userData = await response.json();
+                sessionStorage.setItem("userData", JSON.stringify(userData.data));
+                window.location.href = "http://localhost:8000"
+            }
+        };
+
+        authenticate();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Location Sharing Application</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    #map {
+      height: 90vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <h1>Live Location Tracker</h1>
+  <!-- Make sure you put this AFTER Leaflet's CSS -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    const socket = io();
+    let map = L.map('map').setView([51.507351, -0.127758], 3);
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    function getLocation() {
+      return new Promise((res, rej) => {
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+              res({ lat, lon });
+            },
+            (error) => {
+              alert("Error code:", error.code, "Message:", error.message);
+              rej(new Error(error.message))
+            }
+
+          );
+        } else {
+          alert("Geolocation is not supported by this browser.");
+        };
+      })
+    };
+
+    const remoteMarkers = new Map();
+
+    socket.on("server:response:location:updates", (data) => {
+      console.log(data, "server response");
+
+      if (!remoteMarkers.has(data.id)) {
+        const marker = L.marker([data.lat, data.lon]);
+        marker.addTo(map).bindPopup(data.name);
+        remoteMarkers.set(data.id, marker);
+      } else {
+        const existingId = remoteMarkers.get(data.id);
+        existingId.setLatLng([data.lat, data.lon]);
+      }
+      map.setView([data.lat, data.lon], 10);
+    });
+
+    let Lmarker = null;
+
+    async function loadHandler() {
+      setInterval(async () => {
+        const locationLatLon = await getLocation();
+
+        const user = JSON.parse(sessionStorage.getItem("userData"));
+
+        if (!user) {
+          console.error("you are not login!");
+          window.location.href = "http://localhost:8000/login.html"
+          return;
+        };
+
+        socket.emit("client:location:updates", { locationLatLon, userId: user.sub, userName: user.name });
+
+        if (!Lmarker) {
+          Lmarker = L.marker([locationLatLon.lat, locationLatLon.lon]).addTo(map).bindPopup("You are here");
+        } else {
+          Lmarker.setLatLng([locationLatLon.lat, locationLatLon.lon]);
+        }
+        map.setView([locationLatLon.lat, locationLatLon.lon], 10);
+      }, 8000)
+    };
+
+    window.addEventListener("load", loadHandler);
+
+  </script>
+</body>
+
+</html>

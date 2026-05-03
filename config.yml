@@ -1,0 +1,7 @@
+tunnel: location-traker
+credentials-file: fe01e88c-47a1-4167-a7cb-e7067f7efc2f
+
+ingress:
+  - hostname: localhost
+    service: http://localhost:8000
+  - service: http_status:404
