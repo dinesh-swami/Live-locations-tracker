@@ -24,3 +24,4 @@ async function connectToDatabase() {
 }
 
 export default connectToDatabase;
+console.log('testing')
